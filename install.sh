@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 REPO_RAW="https://raw.githubusercontent.com/seungho-jeong/claude-code-statusline/main"
 DEST="$HOME/.claude/statusline.sh"
