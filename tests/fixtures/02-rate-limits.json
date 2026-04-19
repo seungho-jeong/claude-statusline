@@ -1,0 +1,1 @@
+{"model":{"display_name":"Opus 4.7"},"workspace":{"current_dir":"__NOGIT__"},"context_window":{"total_input_tokens":68000,"total_output_tokens":0,"context_window_size":200000},"cost":{"total_cost_usd":1.23},"rate_limits":{"five_hour":{"resets_at":0,"used_percentage":22},"seven_day":{"used_percentage":12}},"vim":{"mode":"INSERT"}}
