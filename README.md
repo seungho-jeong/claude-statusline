@@ -28,20 +28,55 @@ Instead of pausing work for `/usage`, `/context`, or `claude auth status`, just 
 
 ## Install
 
+`statusline.js` (Node ≥18) is the canonical runtime — cross-platform, zero npm
+dependencies. The legacy `statusline.sh` is kept as a reference implementation
+and will be phased out in a future release.
+
+The installer creates timestamped backups (`*.bak.<YYYYMMDD-HHMMSS>`) of any
+pre-existing `~/.claude/statusline.{sh,js}` and `~/.claude/settings.json`
+before touching them — printed paths on completion.
+
+### macOS / Linux / WSL2
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/seungho-jeong/claude-code-statusline/main/install.sh | sh
 ```
 
-Manual install: place `statusline.sh` at `~/.claude/statusline.sh` and add the following to `~/.claude/settings.json`:
+### Windows (PowerShell 5.1+)
+
+```powershell
+iwr -useb https://raw.githubusercontent.com/seungho-jeong/claude-code-statusline/main/install.ps1 | iex
+```
+
+### Manual install
+
+Place `statusline.js` at `~/.claude/statusline.js` (or
+`%USERPROFILE%\.claude\statusline.js` on Windows) and add to
+`~/.claude/settings.json`:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.claude/statusline.sh",
+    "command": "node ~/.claude/statusline.js",
     "padding": 0
   }
 }
+```
+
+On Windows, the command becomes `node %USERPROFILE%\\.claude\\statusline.js`.
+Windows Terminal + Git for Windows on Windows 10 1809+ is the supported
+combination (ConPTY required for ANSI colors). Legacy `cmd.exe` runs without
+crashing but ignores SGR escapes, so the output appears uncolored.
+
+### Reference / legacy: shell runner
+
+The original `statusline.sh` (bash + jq + coreutils) still ships in this repo
+for byte-by-byte regression comparison against the Node port. It is supported
+on macOS and Linux only and prints a deprecation warning on install:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/seungho-jeong/claude-code-statusline/main/install.sh | sh -s -- --runner sh
 ```
 
 ## Configuration
@@ -64,21 +99,30 @@ Example: `CCSL_CTX_WARN=30 claude`
 ## How it works
 
 - **Account identity** is read directly from `oauthAccount` in `~/.claude.json`. No CLI call, so it stays stable across parallel sessions. Auto-generated organization names are filtered with a regex to distinguish personal and team accounts automatically.
-- **Lightweight by design.** A single `jq` call extracts every field at once using Unit Separator framing, and git info is reused from a per-CWD file cache with a 5-second TTL.
+- **Lightweight by design.** The Node runner uses `JSON.parse` and only forks `git`. The shell runner extracts every field with a single `jq` call using Unit Separator framing. Both share a per-CWD git cache file with a 5-second TTL.
 - **Forgiving of missing data.** If `rate_limits`, `vim.mode`, `~/.claude.json`, or `jq` is absent, only that element is omitted — everything else still renders.
 
 ## Tests
 
 ```sh
-./tests/run.sh              # Snapshot diff after ANSI strip
-./tests/run.sh --update     # Regenerate after an intentional format change
+./tests/run.sh                          # Snapshot diff (plain) for sh + js
+./tests/run.sh --mode ansi              # Compare ANSI-preserved snapshots
+./tests/run.sh --runner js              # Run js only
+./tests/run.sh --update                 # Regenerate plain snapshots (from sh)
+./tests/perf.sh                         # Cold-start gate: <80ms average
+./tests/integration-no-git.sh           # Fallback when git is absent
+./tests/integration-no-home.sh          # Fallback when HOME is unset / missing
+./tests/integration-install-backup.sh   # install.sh backs up pre-existing assets
 ```
 
-Runs in an isolated temp directory so your host's git/HOME/cache state never leaks in.
+Tests run inside an isolated temp directory so your host's git / HOME / cache
+state never leaks in.
 
 ## Dependencies
 
-`jq`, `git`, `curl`, plus standard macOS/Linux coreutils.
+- **statusline.js (canonical)**: Node ≥18. Zero npm dependencies. `git` is optional — without it, line 2 falls back to `(no git repo)`.
+- **statusline.sh (legacy)**: `jq`, `git`, plus macOS/Linux coreutils.
+- **install.sh / install.ps1**: `curl` (or `Invoke-WebRequest` on Windows). `jq` optional — settings.json will simply not be auto-edited if absent.
 
 ## License
 

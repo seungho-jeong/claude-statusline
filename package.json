@@ -1,0 +1,17 @@
+{
+  "name": "claude-code-statusline",
+  "version": "0.1.0",
+  "description": "Glanceable 4-line statusline for Claude Code.",
+  "bin": {
+    "claude-code-statusline": "statusline.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "scripts": {
+    "test": "./tests/run.sh",
+    "test:js": "./tests/run.sh --runner js",
+    "test:ansi": "./tests/run.sh --mode ansi"
+  }
+}

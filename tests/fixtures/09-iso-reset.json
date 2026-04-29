@@ -1,0 +1,1 @@
+{"model":{"display_name":"Claude"},"workspace":{"current_dir":"__NOGIT__"},"context_window":{"total_input_tokens":1000,"total_output_tokens":0,"context_window_size":200000},"rate_limits":{"five_hour":{"resets_at":"2026-04-30T12:00:00Z","used_percentage":50},"seven_day":{"resets_at":"2026-05-05T00:00:00Z","used_percentage":20}}}
