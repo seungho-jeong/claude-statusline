@@ -2,17 +2,18 @@
 #
 # Usage:
 #   .\install.ps1                    # install statusline.js (Node, default)
+#   .\install.ps1 -Runner ps1        # install statusline.ps1 (native PowerShell, no Node)
 #   .\install.ps1 -Runner sh         # install statusline.sh (legacy, deprecated)
 #   .\install.ps1 -Source <path>     # install from a local file instead of HTTP
 #   .\install.ps1 -DryRun            # backup + plan only; no download or settings edit
 #
-# Pre-existing files in $env:USERPROFILE\.claude (statusline.{sh,js},
+# Pre-existing files in $env:USERPROFILE\.claude (statusline.{sh,js,ps1},
 # settings.json) are backed up to *.bak.<yyyyMMdd-HHmmss> before any change.
 # Backup paths are printed on exit.
 
 [CmdletBinding()]
 param(
-    [ValidateSet("js", "sh")]
+    [ValidateSet("js", "ps1", "sh")]
     [string]$Runner = "js",
 
     [string]$Source = "",
@@ -36,6 +37,10 @@ if ($Runner -eq "js") {
     $Dest = Join-Path $ClaudeDir "statusline.js"
     $Src  = "statusline.js"
     $Cmd  = "node `"$Dest`""
+} elseif ($Runner -eq "ps1") {
+    $Dest = Join-Path $ClaudeDir "statusline.ps1"
+    $Src  = "statusline.ps1"
+    $Cmd  = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$Dest`""
 } else {
     $Dest = Join-Path $ClaudeDir "statusline.sh"
     $Src  = "statusline.sh"
@@ -54,6 +59,13 @@ if ($Runner -eq "js") {
     }
 }
 
+# PowerShell version gate (ps1 mode only).
+if ($Runner -eq "ps1") {
+    if ($PSVersionTable.PSVersion.Major -lt 5) {
+        throw "PowerShell 5.1+ required (found $($PSVersionTable.PSVersion))."
+    }
+}
+
 # Ensure ~/.claude exists.
 if (-not (Test-Path $ClaudeDir)) {
     New-Item -ItemType Directory -Path $ClaudeDir -Force | Out-Null
@@ -65,6 +77,7 @@ $backups = @()
 foreach ($f in @(
     (Join-Path $ClaudeDir "statusline.sh"),
     (Join-Path $ClaudeDir "statusline.js"),
+    (Join-Path $ClaudeDir "statusline.ps1"),
     $Settings
 )) {
     if (Test-Path $f) {
@@ -106,7 +119,10 @@ $line = [PSCustomObject]@{
 }
 
 if (Test-Path $Settings) {
-    $raw = Get-Content -Raw -Path $Settings
+    # Read as raw UTF-8 bytes — Get-Content -Raw in PS 5.1 defaults to the
+    # ANSI code page (cp949 on Korean Windows etc.) and corrupts non-ASCII
+    # JSON values (e.g. Korean hook command strings).
+    $raw = [System.IO.File]::ReadAllText($Settings, (New-Object System.Text.UTF8Encoding($false)))
     if ([string]::IsNullOrWhiteSpace($raw)) {
         $obj = [PSCustomObject]@{}
     } else {
@@ -117,12 +133,16 @@ if (Test-Path $Settings) {
     } else {
         Add-Member -InputObject $obj -MemberType NoteProperty -Name "statusLine" -Value $line
     }
-    $tmpJson = New-TemporaryFile
-    $obj | ConvertTo-Json -Depth 10 | Set-Content -Path $tmpJson.FullName -Encoding UTF8
-    Move-Item -Path $tmpJson.FullName -Destination $Settings -Force
+    # Write back as UTF-8 without BOM to preserve compatibility with the
+    # Node-based Claude Code reader.
+    $json = $obj | ConvertTo-Json -Depth 10
+    $tmpJson = [System.IO.Path]::GetTempFileName()
+    [System.IO.File]::WriteAllText($tmpJson, $json, (New-Object System.Text.UTF8Encoding($false)))
+    Move-Item -Path $tmpJson -Destination $Settings -Force
 } else {
     $obj = [PSCustomObject]@{ statusLine = $line }
-    $obj | ConvertTo-Json -Depth 10 | Set-Content -Path $Settings -Encoding UTF8
+    $json = $obj | ConvertTo-Json -Depth 10
+    [System.IO.File]::WriteAllText($Settings, $json, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 Write-Host "installed ($Runner). restart Claude Code to apply."
