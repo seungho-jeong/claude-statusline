@@ -48,6 +48,15 @@ curl -fsSL https://raw.githubusercontent.com/seungho-jeong/claude-code-statuslin
 iwr -useb https://raw.githubusercontent.com/seungho-jeong/claude-code-statusline/main/install.ps1 | iex
 ```
 
+The default Node runner is recommended. If Node is not installed and you do
+not want to add it, use the bundled native PowerShell port instead — same
+output, zero external dependencies (no node, no jq, no coreutils):
+
+```powershell
+$s = iwr -useb https://raw.githubusercontent.com/seungho-jeong/claude-code-statusline/main/install.ps1
+& ([scriptblock]::Create($s)) -Runner ps1
+```
+
 ### Manual install
 
 Place `statusline.js` at `~/.claude/statusline.js` (or
@@ -68,6 +77,29 @@ On Windows, the command becomes `node %USERPROFILE%\\.claude\\statusline.js`.
 Windows Terminal + Git for Windows on Windows 10 1809+ is the supported
 combination (ConPTY required for ANSI colors). Legacy `cmd.exe` runs without
 crashing but ignores SGR escapes, so the output appears uncolored.
+
+For the native PowerShell runner, place `statusline.ps1` at
+`%USERPROFILE%\.claude\statusline.ps1` and use:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.claude\\statusline.ps1\"",
+    "padding": 0
+  }
+}
+```
+
+The PowerShell port writes raw UTF-8 bytes directly to stdout so the bar
+glyphs and other non-ASCII characters survive on systems whose default
+console encoding is not UTF-8 (e.g. Korean Windows defaulting to cp949).
+
+**Trade-off:** the Node runner cold-starts in well under 100 ms; the
+PowerShell runner is closer to 600–900 ms due to PowerShell's own engine
+startup. The status line is rendered intermittently (not on every keystroke)
+so this is generally invisible, but if the slight delay matters, prefer the
+Node runner.
 
 ### Reference / legacy: shell runner
 
@@ -121,6 +153,7 @@ state never leaks in.
 ## Dependencies
 
 - **statusline.js (canonical)**: Node ≥18. Zero npm dependencies. `git` is optional — without it, line 2 falls back to `(no git repo)`.
+- **statusline.ps1 (Windows-native)**: PowerShell 5.1+. Zero external dependencies. `git` is optional — same fallback as the Node runner.
 - **statusline.sh (legacy)**: `jq`, `git`, plus macOS/Linux coreutils.
 - **install.sh / install.ps1**: `curl` (or `Invoke-WebRequest` on Windows). `jq` optional — settings.json will simply not be auto-edited if absent.
 
